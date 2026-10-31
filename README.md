@@ -1,7 +1,7 @@
 # news-feed-fanout
 
 [![ci](https://github.com/EquinoxWN/news-feed-fanout/actions/workflows/ci.yml/badge.svg)](https://github.com/EquinoxWN/news-feed-fanout/actions/workflows/ci.yml)
-![status](https://img.shields.io/badge/status-M1%20built%2C%20Kafka%2FValkey%20CI%20run%20pending-yellow)
+![status](https://img.shields.io/badge/status-M1%20done%2C%20M2%20in%20progress-yellow)
 
 > Serving a feed when one account has millions of followers, without melting the database: fan-out done the way real social apps do it.
 
@@ -20,8 +20,9 @@ gofmt and go vet are clean, 44 tests pass, and govulncheck with Go 1.26.10 finds
 
 ![gofmt, go vet, go test and govulncheck output](docs/proof/tests.jpg)
 
-The same pipeline against real Kafka and Valkey is a CI job (`e2e`); its first CI run is pending, so
-there are no Kafka or Valkey results yet.
+The same pipeline against real Kafka 4.1.0 and Valkey 8.1.4 runs in the CI `e2e` job ([run](https://github.com/EquinoxWN/news-feed-fanout/actions/runs/41147814687)):
+the integration test verified 8,533 timeline entries from 5 posts (45 tasks), and a 50k-user demo
+found 83,468 of 83,468 follower timelines holding their post, 0 missing.
 
 ## Architecture
 
@@ -48,7 +49,7 @@ in-process implementations, CI runs the Kafka (franz-go) and Valkey (RESP2) ones
 
 ## How it works
 
-_Steps 1 and 2 are built and tested in-process (M1); the Kafka/Valkey run of step 2 is a CI job whose first run is pending; the rest is on the [roadmap](#roadmap)._
+_Steps 1 and 2 are built and tested in-process (M1); the Kafka/Valkey run of step 2 is verified in CI; the rest is on the [roadmap](#roadmap)._
 
 1. Posts are stored once; a synthetic follow graph has a realistic power-law shape, including a few accounts with millions of followers.
 2. Fan-out on write pushes each new post ID into every follower's timeline (a Valkey sorted set) through Kafka workers.
@@ -79,7 +80,7 @@ In M1 terms:
 | Area | In M1 | Planned |
 |---|---|---|
 | Core | Go 1.26, power-law graph generator (CSR), 53-bit time-ordered IDs, in-memory post store | PostgreSQL for posts and follows, outbox for the announce step |
-| Feeds | Two-stage fan-out over consumer groups: in-process bus (tested locally), Kafka via franz-go (CI job, first run pending); timelines in-process or in Valkey sorted sets via a small RESP2 client (CI job, first run pending) | Pull for accounts above a threshold, read-time merge, cursor pagination |
+| Feeds | Two-stage fan-out over consumer groups: in-process bus (tested locally), Kafka via franz-go (verified in CI); timelines in-process or in Valkey sorted sets via a small RESP2 client (verified in CI) | Pull for accounts above a threshold, read-time merge, cursor pagination |
 | Test | Unit, randomized oracle, failure-injection, two fuzz targets, end-to-end demo | k6 load tests for push, pull and hybrid |
 | CI | gofmt, go vet, `go test -race`, govulncheck; Kafka 4.1.0 and Valkey 8.1.4 service containers | |
 
@@ -137,7 +138,7 @@ Latest local run (full detail in [docs/results/m1.md](docs/results/m1.md)): **44
 | `internal/post/post_test.go` | 4 | A post is stored once (second put refused), lookups, body validation |
 | `internal/timeline/timeline_test.go` | 5 | Newest first, idempotent adds, trim to the newest N (randomized), concurrent writers |
 | `internal/timeline/valkey_test.go` | 5 | Valkey adapter against a loopback fake server (add, trim, latest, missing), concurrent pipelines, server errors, malformed RESP rejected; fuzz target |
-| `internal/fanout/integration_test.go` | 1 | Kafka consumer groups and Valkey sorted sets end to end: **CI job written; first CI run pending** |
+| `internal/fanout/integration_test.go` | 1 | Kafka consumer groups and Valkey sorted sets end to end: **runs in CI; 8,533 timeline entries verified** |
 
 Headline results from the 3M-user run on this machine:
 
@@ -160,7 +161,7 @@ Not run locally: the race detector (needs cgo) and the Kafka/Valkey tests; both 
 **M1** (≈8 h)
 - [x] Write `docs/rfc/0001-design.md`: problem, goals, non-goals, chosen design
 - [x] Posts are stored once; a synthetic follow graph has a realistic power-law shape, including a few accounts with millions of followers.
-- [ ] Fan-out on write pushes each new post ID into every follower's timeline (a Valkey sorted set) through Kafka workers. Built and verified in-process (3.5M timeline writes, 0 missing); Kafka and Valkey: CI job written; first CI run pending.
+- [x] Fan-out on write pushes each new post ID into every follower's timeline (a Valkey sorted set) through Kafka workers. Verified in-process (3.5M timeline writes, 0 missing) and against real Kafka and Valkey in CI (83,468 of 83,468 timelines, 0 missing).
 
 **M2** (≈8 h)
 - [ ] For accounts above a follower threshold that is too expensive, so their posts are pulled and merged at read time instead.
