@@ -13,7 +13,7 @@ test:
 
 # Needs Kafka and Valkey (CI starts them as service containers).
 test-integration:
-	go test -tags integration -count=1 -run KafkaAndValkey -v ./internal/fanout
+	go test -tags integration -count=1 -timeout 6m -run KafkaAndValkey -v ./internal/fanout
 
 # The numbers in the README: 3M-user graph, fan-out of 2,003 posts in-process (about 0.5 GB of RAM).
 bench:

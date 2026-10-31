@@ -61,7 +61,14 @@ jobs:
           go-version: "1.26.10"
           cache-dependency-path: go.sum
       - name: Integration test (Kafka consumer groups + Valkey sorted sets)
-        run: make test-integration
+        run: |
+          set -o pipefail
+          if make test-integration 2>&1 | tee it.log; then
+            echo "::notice title=kafka+valkey integration test::$(grep -m1 'kafka+valkey:' it.log | sed 's/^ *//')"
+          else
+            echo "::error title=kafka+valkey integration test::$(grep -E -e '--- FAIL|_test\.go:[0-9]+|panic:|internal/(bus|fanout)/[a-z]+\.go:[0-9]+' it.log | head -n 12 | tr '\n' ' ')"
+            exit 1
+          fi
       - name: Demo against Kafka and Valkey
         run: |
           set -o pipefail

@@ -85,6 +85,8 @@ func (k *Kafka) member(ctx context.Context, topicName, groupName string, h Handl
 		return fmt.Errorf("bus: kafka consumer: %w", err)
 	}
 	defer cl.Close()
+	// Close leaves the group, and leaving waits for AllowRebalance after the last poll.
+	defer cl.AllowRebalance()
 	for {
 		fetches := cl.PollFetches(ctx)
 		if fetches.IsClientClosed() || ctx.Err() != nil {
